@@ -17,17 +17,15 @@ const io = new Server(server, {
     },
 });
 
-// Use CORS middleware
+// Middleware
 app.use(cors());
-
-// Middleware to parse JSON
 app.use(bodyParser.json());
 
 // MongoDB connection
 mongoose
-  .connect("mongodb+srv://sodagaramaan786:HbiVzsmAJNAm4kg4@cluster0.576stzr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.log("MongoDB connection error:", err));
+    .connect("mongodb+srv://sodagaramaan786:HbiVzsmAJNAm4kg4@cluster0.576stzr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+    .then(() => console.log("MongoDB connected"))
+    .catch((err) => console.log("MongoDB connection error:", err));
 
 // User Schema and Model
 const userSchema = new mongoose.Schema({
@@ -61,17 +59,10 @@ const verifyToken = (req, res, next) => {
     }
 };
 
-// Protected Route
-app.get("/protected", verifyToken, (req, res) => {
-    res.status(200).json({ message: "This is a protected route", user: req.user });
-});
-
-//Example Route
-
+// Routes
 app.get("/", (req, res) => {
-  res.send("Hello World!");
+    res.send("Hello World!");
 });
-
 
 // Registration Endpoint
 app.post("/auth/register", async (req, res) => {
@@ -113,20 +104,52 @@ app.post("/auth/login", async (req, res) => {
     }
 });
 
+// Fetch All Users Except Current User
+app.get("/users", verifyToken, async (req, res) => {
+    try {
+        const users = await User.find({ _id: { $ne: req.user.userId } });
+        res.status(200).json(users);
+    } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).json({ message: "Failed to fetch users" });
+    }
+});
+
+// Fetch Chat Messages Between Two Users
+app.get("/messages/:receiverId", verifyToken, async (req, res) => {
+    try {
+        const { receiverId } = req.params;
+        const messages = await Message.find({
+            $or: [
+                { sender: req.user.userId, receiver: receiverId },
+                { sender: receiverId, receiver: req.user.userId },
+            ],
+        }).sort({ timestamp: 1 });
+        res.status(200).json(messages);
+    } catch (error) {
+        console.error("Error fetching messages:", error);
+        res.status(500).json({ message: "Failed to fetch messages" });
+    }
+});
+
 // Socket.IO Real-time Chat
 io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
 
     socket.on("sendMessage", async ({ senderId, receiverId, content }) => {
-        const message = new Message({ sender: senderId, receiver: receiverId, content });
-        await message.save();
+        try {
+            const message = new Message({ sender: senderId, receiver: receiverId, content });
+            await message.save();
 
-        io.emit("receiveMessage", {
-            senderId,
-            receiverId,
-            content,
-            timestamp: message.timestamp,
-        });
+            io.to(receiverId).emit("receiveMessage", {
+                senderId,
+                receiverId,
+                content,
+                timestamp: message.timestamp,
+            });
+        } catch (error) {
+            console.error("Error saving message:", error);
+        }
     });
 
     socket.on("disconnect", () => {
