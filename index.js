@@ -66,6 +66,13 @@ app.get("/protected", verifyToken, (req, res) => {
     res.status(200).json({ message: "This is a protected route", user: req.user });
 });
 
+//Example Route
+
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
+
+
 // Registration Endpoint
 app.post("/auth/register", async (req, res) => {
     const { username, email, password } = req.body;
