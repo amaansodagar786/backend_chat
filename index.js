@@ -12,10 +12,12 @@ require("dotenv").config();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "https://chat-app-flame-zeta.vercel.app", // frontend URL
+        origin: ["http://localhost:3000", "https://chat-app-flame-zeta.vercel.app"],
         methods: ["GET", "POST"],
     },
 });
+
+
 
 // Middleware
 app.use(cors());
@@ -83,6 +85,7 @@ app.post("/auth/register", async (req, res) => {
 });
 
 // Login Endpoint
+// Login Endpoint
 app.post("/auth/login", async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -90,19 +93,41 @@ app.post("/auth/login", async (req, res) => {
         if (!user) {
             return res.status(400).json({ message: "User not found" });
         }
+
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(400).json({ message: "Incorrect password" });
         }
-        const token = jwt.sign({ userId: user._id, username: user.username }, process.env.JWT_SECRET, {
-            expiresIn: "1h",
+
+        const token = jwt.sign(
+            { userId: user._id, username: user.username }, // Include important user details in the token
+            process.env.JWT_SECRET,
+            { expiresIn: "1h" }
+        );
+
+        // Send both token and user details
+        res.status(200).json({
+            message: "Login successful",
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+            },
         });
-        res.status(200).json({ message: "Login successful", token });
     } catch (error) {
         console.error("Login error:", error);
         res.status(500).json({ message: "Server error" });
     }
 });
+
+
+
+// Protected Route (Example)
+app.get("/protected", verifyToken, (req, res) => {
+    res.status(200).json({ message: "This is a protected route", user: req.user });
+  });
+  
 
 // Fetch All Users Except Current User
 app.get("/users", verifyToken, async (req, res) => {
@@ -136,26 +161,36 @@ app.get("/messages/:receiverId", verifyToken, async (req, res) => {
 io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
 
-    socket.on("sendMessage", async ({ senderId, receiverId, content }) => {
+    socket.on("sendMessage", async ({ senderId, receiverId, content }, callback) => {
+        console.log("Received message data:", { senderId, receiverId, content });
+        if (!senderId || !receiverId || !content) {
+            console.error("Invalid message data:", { senderId, receiverId, content });
+            callback({ success: false });
+            return;
+        }
         try {
             const message = new Message({ sender: senderId, receiver: receiverId, content });
-            await message.save();
-
+            console.log("Saving message to database...");
+            const savedMessage = await message.save();
+            console.log("Message saved successfully:", savedMessage);
             io.to(receiverId).emit("receiveMessage", {
                 senderId,
                 receiverId,
                 content,
-                timestamp: message.timestamp,
+                timestamp: savedMessage.timestamp,
             });
+            callback({ success: true });
         } catch (error) {
-            console.error("Error saving message:", error);
+            console.error("Error saving message to database:", error);
+            callback({ success: false });
         }
     });
-
+    
     socket.on("disconnect", () => {
         console.log("User disconnected:", socket.id);
     });
 });
+
 
 // Start the server
 server.listen(4000, () => {
