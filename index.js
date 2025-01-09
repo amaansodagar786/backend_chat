@@ -160,6 +160,7 @@ app.get("/messages/:receiverId", verifyToken, async (req, res) => {
 
 
 // Socket.IO Real-time Chat
+// Socket.IO Real-time Chat
 const activeUsers = new Map();
 
 io.on("connection", (socket) => {
@@ -223,6 +224,7 @@ io.on("connection", (socket) => {
         }
     });
 });
+
 
 
 // Start the server
