@@ -8,6 +8,7 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const nodemailer = require("nodemailer");
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -77,12 +78,41 @@ app.post("/auth/register", async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ username, email, password: hashedPassword });
         await newUser.save();
-        res.status(201).json({ message: "User registered successfully" });
+
+
+        const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+                user: process.env.EMAIL_USER, // Your email from .env
+                pass: process.env.EMAIL_PASS, // Your email password or app password from .env
+            },
+        });
+
+        // Email content to yourself
+        const mailOptions = {
+            from: process.env.EMAIL_USER, // Sender email
+            to: process.env.EMAIL_USER, // Send to your email
+            subject: "New User Registration",
+            html: `
+                <p><strong>New User Registered!</strong></p>
+                <p><strong>Username:</strong> ${username}</p>
+                <p><strong>Email:</strong> ${email}</p>
+               
+            `,
+        };
+
+        // Send the email to yourself
+        const info = await transporter.sendMail(mailOptions);
+        console.log("Admin email sent:", info.response);
+
+        // Respond with success
+        res.status(201).json({ message: "User registered successfully, and admin notified" });
     } catch (error) {
         console.error("Registration error:", error);
         res.status(500).json({ message: "Server error" });
     }
 });
+
 
 // Login Endpoint
 // Login Endpoint
@@ -126,8 +156,8 @@ app.post("/auth/login", async (req, res) => {
 // Protected Route (Example)
 app.get("/protected", verifyToken, (req, res) => {
     res.status(200).json({ message: "This is a protected route", user: req.user });
-  });
-  
+});
+
 
 // Fetch All Users Except Current User
 app.get("/users", verifyToken, async (req, res) => {
@@ -219,7 +249,7 @@ io.on("connection", (socket) => {
     // Handle user disconnection
     socket.on("disconnect", () => {
         console.log("User disconnected:", socket.id);
-        
+
         for (const [userId, socketId] of activeUsers.entries()) {
             if (socketId === socket.id) {
                 activeUsers.delete(userId);
