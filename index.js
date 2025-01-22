@@ -89,7 +89,8 @@ app.post("/auth/register", async (req, res) => {
         });
 
         // Email content to yourself
-        const mailOptions = {
+         // Email content to the admin
+         const adminMailOptions = {
             from: process.env.EMAIL_USER, // Sender email
             to: process.env.EMAIL_USER, // Send to your email
             subject: "New User Registration",
@@ -97,13 +98,26 @@ app.post("/auth/register", async (req, res) => {
                 <p><strong>New User Registered!</strong></p>
                 <p><strong>Username:</strong> ${username}</p>
                 <p><strong>Email:</strong> ${email}</p>
-               
             `,
         };
 
-        // Send the email to yourself
-        const info = await transporter.sendMail(mailOptions);
-        console.log("Admin email sent:", info.response);
+        // Email content to the user
+        const userMailOptions = {
+            from: process.env.EMAIL_USER, // Sender email
+            to: email, // User's email
+            subject: "Welcome to Our Website",
+            html: `
+                <p>Hello <strong>${username}</strong>,</p>
+                <p>Thank you for registering on our platform. We're excited to have you on board!</p>
+                <p>If you have any questions, feel free to reply to this email.</p>
+                <p>Best regards,</p>
+                
+            `,
+        };
+
+        // Send emails to both admin and user
+        await transporter.sendMail(adminMailOptions);
+        await transporter.sendMail(userMailOptions);
 
         // Respond with success
         res.status(201).json({ message: "User registered successfully, and admin notified" });
