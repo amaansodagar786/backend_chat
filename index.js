@@ -120,7 +120,7 @@ app.post("/auth/register", async (req, res) => {
         await transporter.sendMail(userMailOptions);
 
         // Respond with success
-        res.status(201).json({ message: "User registered successfully, and admin notified" });
+        res.status(201).json({ message: "User registered successfully, User and admin notified" });
     } catch (error) {
         console.error("Registration error:", error);
         res.status(500).json({ message: "Server error" });
